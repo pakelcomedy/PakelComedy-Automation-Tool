@@ -1,10 +1,26 @@
-import subprocess
+from selenium import webdriver
+from selenium.webdriver.common.proxy import Proxy, ProxyType
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
-# Define the path to the Brave browser executable
-brave_path = '/usr/bin/brave-browser'  # Update this path based on your system
+# Set the proxy details
+proxy_ip = "172.183.241.1:8080"
+proxy = Proxy()
+proxy.proxy_type = ProxyType.MANUAL
+proxy.http_proxy = proxy_ip
+proxy.ssl_proxy = proxy_ip
 
-# Define the URL you want to open
-url = 'https://www.instagram.com/accounts/emailsignup/'
+# Configure options for Brave
+brave_path = '/usr/bin/brave-browser'  # Update this path if needed
+options = Options()
+options.binary_location = brave_path
 
-# Command to open the URL in a new Brave window
-subprocess.run([brave_path, '--new-window', url])
+# Set proxy with Selenium options
+options.add_argument(f"--proxy-server=http://{proxy_ip}")
+
+# Initialize the WebDriver with the specified options
+service = Service('/usr/local/bin/chromedriver')  # Update this path to your ChromeDriver location
+driver = webdriver.Chrome(service=service, options=options)
+
+# Open the specified URL
+driver.get("https://www.instagram.com/accounts/emailsignup/")

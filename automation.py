@@ -4,7 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
 # Set the proxy details
-proxy_ip = "5.161.103.41:88"
+proxy_ip = "201.234.186.234:999"
 proxy = Proxy()
 proxy.proxy_type = ProxyType.MANUAL
 proxy.http_proxy = proxy_ip

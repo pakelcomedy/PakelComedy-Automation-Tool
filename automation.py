@@ -2,11 +2,11 @@ import aiohttp
 import asyncio
 import re
 import random
-
 from selenium import webdriver
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import WebDriverException, TimeoutException
 
 class ProxyFinder:
     def __init__(self):
@@ -32,12 +32,11 @@ class ProxyFinder:
                 async with session.get(url) as response:
                     if response.status == 200:
                         text = await response.text()
-                        # Extract IP:Port combinations using regex
                         proxies = re.findall(r'\d+\.\d+\.\d+\.\d+:\d+', text)
                         self.proxies.update(proxies)
                         return
-            except:
-                pass
+            except Exception as e:
+                print(f"Error fetching proxies from {url}: {e}")
 
     async def check_proxy(self, session, proxy):
         try:
@@ -45,8 +44,8 @@ class ProxyFinder:
             async with session.get(self.test_url, proxy=proxy_url, timeout=10) as response:
                 if response.status == 200:
                     self.working_proxies.append(proxy)
-        except:
-            pass
+        except Exception as e:
+            print(f"Proxy {proxy} failed: {e}")
 
     async def find_proxies(self):
         async with aiohttp.ClientSession() as session:
@@ -69,41 +68,76 @@ class ProxyFinder:
         for proxy in self.working_proxies:
             print(proxy)
 
-# Use ProxyFinder to get a working proxy
-async def get_working_proxy():
-    proxy_finder = ProxyFinder()
+async def get_working_proxy(proxy_finder):
     await proxy_finder.run()
     if proxy_finder.working_proxies:
         return random.choice(proxy_finder.working_proxies)
     else:
         return None
 
-async def main():
-    proxy_ip = await get_working_proxy()
-    if proxy_ip:
-        # Set the proxy details
+async def setup_selenium(proxy_ip):
+    driver = None
+    try:
         proxy = Proxy()
         proxy.proxy_type = ProxyType.MANUAL
         proxy.http_proxy = proxy_ip
         proxy.ssl_proxy = proxy_ip
 
-        # Configure options for Brave
-        brave_path = '/usr/bin/brave-browser'  # Update this path if needed
+        brave_path = '/usr/bin/brave-browser'
         options = Options()
         options.binary_location = brave_path
-
-        # Set proxy with Selenium options
         options.add_argument(f"--proxy-server=http://{proxy_ip}")
 
-        # Initialize the WebDriver with the specified options
-        service = Service('/usr/local/bin/chromedriver')  # Update this path to your ChromeDriver location
+        service = Service('/usr/local/bin/chromedriver')
         driver = webdriver.Chrome(service=service, options=options)
+        driver.set_page_load_timeout(15)  # Set a page load timeout
+        driver.get("https://www.instagram.com/accounts/emailsignup/")
 
-        # Open the specified URL
-        driver.get("https://www.instagram.com/accounts/emailsignup/")   
-    else:
-        print("No working proxy found. Retrying...")
-        await main()
+        # Check for privacy error by verifying page title or specific elements
+        if "Privacy error" in driver.title:
+            raise Exception("Privacy error encountered")
+
+        return driver
+    except TimeoutException as e:
+        if driver:
+            driver.quit()
+        print(f"Page load timed out with proxy {proxy_ip}: {e}")
+        return None
+    except WebDriverException as e:
+        if driver:
+            driver.quit()
+        print(f"WebDriver error with proxy {proxy_ip}: {e}")
+        return None
+    except Exception as e:
+        if driver:
+            driver.quit()
+        print(f"Error setting up Selenium with proxy {proxy_ip}: {e}")
+        return None
+
+async def main():
+    proxy_finder = ProxyFinder()
+    while True:
+        proxy_ip = await get_working_proxy(proxy_finder)
+        if proxy_ip:
+            print(f"Using proxy: {proxy_ip}")
+            driver = await setup_selenium(proxy_ip)
+            if driver:
+                try:
+                    await asyncio.sleep(15)  # Wait for some time for page interaction
+                    title = driver.title  # Perform some action to verify page loaded successfully
+                    if "Privacy error" in title:
+                        raise Exception("Privacy error encountered")
+                    print(f"Successfully connected! Title: {title}")
+                    break
+                except Exception as e:
+                    print(f"Error interacting with page: {e}")
+                    driver.quit()
+                    print("Page load error, retrying with a new proxy...")
+            else:
+                print("Failed to connect, retrying with a new proxy...")
+        else:
+            print("No working proxy found. Retrying...")
+            await asyncio.sleep(5)  # Wait before retrying
 
 if __name__ == '__main__':
     asyncio.run(main())

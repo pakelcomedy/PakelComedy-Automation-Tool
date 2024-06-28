@@ -4,7 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
 # Set the proxy details
-proxy_ip = "172.183.241.1:8080"
+proxy_ip = "5.161.103.41:88"
 proxy = Proxy()
 proxy.proxy_type = ProxyType.MANUAL
 proxy.http_proxy = proxy_ip
@@ -23,4 +23,4 @@ service = Service('/usr/local/bin/chromedriver')  # Update this path to your Chr
 driver = webdriver.Chrome(service=service, options=options)
 
 # Open the specified URL
-driver.get("https://www.instagram.com/accounts/emailsignup/")
+driver.get("https://www.instagram.com/accounts/emailsignup/")   
